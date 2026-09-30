@@ -206,21 +206,30 @@ export function resolveConfig(raw) {
  * 「包装」而不是「短路」——上层其它策略仍然生效。force 为 false 时
  * 尊重上游已经显式设过的值，避免和其它插件抢同一个旋钮。
  *
+ * 采用写时复制：没有任何键需要改时，返回**上游那一个对象本身**，而不是等值副本。
+ * 理由是循环在 agent/request 之后要「记录 header 并冻结请求」，冻结证据按对象复用；
+ * 每步都换一个新对象，即使内容完全相等，也可能被判成封装变化而重记 request/header，
+ * 那会打掉前缀缓存。而本插件在绝大多数步骤上无事可做——第一轮写进去的值已经进了
+ * header，后续轮次上游本来就带着它——所以「什么都不改」才是常态路径。
+ *
  * @param {object} base 上游解析出的 LlmCallConfig
  * @param {typeof DEFAULT_CONFIG.request} request 本插件的参数配置
- * @returns {object} 合并后的配置
+ * @returns {object} 需要改动时返回新对象；无事可做时原样返回 base
  */
 export function mergeRequestConfig(base, request) {
-  const next = { ...base }
+  let next = base
+  // 只在真的要写入时才复制，让「无事可做」这条路径零分配、零身份变化。
   const put = (key, value) => {
     if (value === undefined) return
-    if (!request.force && next[key] !== undefined) return
+    if (!request.force && base[key] !== undefined) return
+    if (next === base) next = { ...base }
     next[key] = value
   }
   put('temperature', request.temperature)
   put('maxTokens', request.maxTokens)
   put('reasoningEffort', request.reasoningEffort)
-  if (request.stop && request.stop.length > 0 && (request.force || next.stop === undefined)) {
+  if (request.stop && request.stop.length > 0 && (request.force || base.stop === undefined)) {
+    if (next === base) next = { ...base }
     next.stop = [...request.stop]
   }
   return next

@@ -169,6 +169,29 @@ test('stop 数组被复制而非共享引用', () => {
   assert.notEqual(merged.stop, stop)
 })
 
+test('无事可做时返回上游对象本身（否则每步重记 header 会打掉前缀缓存）', () => {
+  const base = { provider: 'p', model: 'm', temperature: 0.2 }
+  const merged = mergeRequestConfig(base, DEFAULT_CONFIG.request)
+  assert.equal(merged, base, '应当返回同一个对象引用，而不是等值副本')
+  assert.equal(Object.keys(merged).length, 3, '不应凭空多出键')
+})
+
+test('需要改动时才新建对象，且不污染上游', () => {
+  const base = { provider: 'p', model: 'm' }
+  const merged = mergeRequestConfig(base, DEFAULT_CONFIG.request)
+  assert.notEqual(merged, base, '写入了 temperature，应当是副本')
+  assert.equal(merged.temperature, 0.2)
+  assert.equal('temperature' in base, false, '上游对象不能被动过')
+  assert.equal(base.model, 'm')
+})
+
+test('上游带温度时同样零改动（第二轮的常态路径）', () => {
+  const base = { provider: 'p', model: 'm', temperature: 0.7 }
+  const merged = mergeRequestConfig(base, DEFAULT_CONFIG.request)
+  assert.equal(merged, base)
+  assert.equal(merged.temperature, 0.7, '不该覆盖上游已设的值')
+})
+
 console.log('\napply 装载行为')
 test('注册 guard、restrict、提示词段与请求监听器', () => {
   const { ctx, calls } = fakeContext({
