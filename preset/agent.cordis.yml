@@ -1,0 +1,80 @@
+# dsh-plus-mode 的 agent preset 组合（可读镜像）。
+#
+# 生效的那份内联在 profile 的 cordis.patch.yml 里——本 profile 挂载的是声明式
+# 注册表 dsh-agent-preset-registry，它不扫描 .agent-presets 目录，所以组合只能
+# 以 @deepseek-ai/dsh-agent-preset 行的 config.plugins 内联声明。
+# 本文件是同一份内容的可读副本；改完要同步回 patch，否则不会生效。
+#
+# 这是一个 AGENT 平面的组合：每个选择本预设的会话通过父级关系加入该作用域，
+# 因此这里注册的工具、提示词段和事件监听器只覆盖加入者，不会外溢到别的模式。
+#
+# 本文件刻意只做两件事：列出工具、挂载控制器。
+# 宿主组合（base/web-app）继续拥有注册表、沙箱、审批、持久化和模型路由。
+
+# 工具数量在这里被物理决定：写几行就有几个工具。
+# 四项插件行合计注册 7 个模型可见工具：
+#   read / write / edit          <- dsh-tool-fs
+#   grep / glob                  <- dsh-tool-fs-search
+#   pwsh（或 bash）               <- dsh-tool-pwsh / dsh-tool-bash
+#   todo_write                   <- dsh-tool-todo
+# 其余宿主工具由 dsh-plus-mode 的 restrict + guard 双层收敛，见 index.js。
+
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+# sampleOverCapGlobResults 没有 schema 默认值，必填；漏掉会让整行装载失败，
+# 错误信息是 "missing required value"。下面的取值与内部测试模式的取向一致：
+# 不做抽样，结果超上限时如实报告，避免基于随机子集下结论。
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# 两个 shell 工具按平台二选一。它们注册进宿主的 tools 注册表，
+# 自身不提供任何服务，所以不需要 isolate realm。
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+# allowParallelInProgress 同样是必填项。
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+# 控制器：白名单、提示词、请求参数都在这一个插件里。
+# 它不提供 Service，所以同样不需要 realm——realm 只约束「服务行」。
+- id: plus-mode
+  name: 'dsh-plus-mode'
+  config:
+    tools:
+      allow:
+        - read
+        - write
+        - edit
+        - grep
+        - glob
+        - pwsh
+        - bash
+        - todo_write
+      # guard 是强制层：白名单外的调用一律被拒。
+      enforce: true
+      # restrict 是收敛层：把非白名单的全局工具从模型目录里摘掉。
+      hideGlobal: true
+    prompt:
+      enabled: true
+      # replace: false 表示在常规提示词之外追加一段规则。
+      # 想要「只有这一小段」的极限形态，改成 true。
+      replace: false
+      # 打开后不再注入动态运行上下文，提示词前缀更短也更稳定。
+      suppressContext: false
+      order: 0
+    request:
+      enabled: true
+      temperature: 0.2
+      # force: false 时，上游其它插件已显式设过的值不被覆盖。
+      force: false

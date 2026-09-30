@@ -1,0 +1,21 @@
+{
+  "name": "dsh-plus-mode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "内部测试模式：工具白名单、全新思考机制/编码习惯/设计风格的提示词、请求参数注入。作为库被 agent preset 引用，不作为 profile 组合包激活。",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "preset",
+    "verify.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "license": "MIT"
+}
