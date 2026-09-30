@@ -111,7 +111,7 @@ export const INTERNAL_TEST_PROMPT = [
 
 export const DEFAULT_CONFIG = {
   tools: {
-    allow: ['read', 'write', 'edit', 'grep', 'glob', 'pwsh', 'bash', 'todo_write'],
+    allow: ['read', 'read_image', 'write', 'edit', 'grep', 'glob', 'pwsh', 'bash', 'todo_write'],
     enforce: true,
     hideGlobal: true,
   },

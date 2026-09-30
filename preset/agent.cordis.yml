@@ -12,11 +12,11 @@
 # 宿主组合（base/web-app）继续拥有注册表、沙箱、审批、持久化和模型路由。
 
 # 工具数量在这里被物理决定：写几行就有几个工具。
-# 四项插件行合计注册 7 个模型可见工具：
-#   read / write / edit          <- dsh-tool-fs
-#   grep / glob                  <- dsh-tool-fs-search
-#   pwsh（或 bash）               <- dsh-tool-pwsh / dsh-tool-bash
-#   todo_write                   <- dsh-tool-todo
+# 四项插件行合计注册 8 个模型可见工具：
+#   read / read_image / write / edit   <- dsh-tool-fs
+#   grep / glob                        <- dsh-tool-fs-search
+#   pwsh（或 bash）                     <- dsh-tool-pwsh / dsh-tool-bash
+#   todo_write                         <- dsh-tool-todo
 # 其余宿主工具由 dsh-plus-mode 的 restrict + guard 双层收敛，见 index.js。
 
 - id: tool-fs
@@ -54,6 +54,7 @@
     tools:
       allow:
         - read
+        - read_image
         - write
         - edit
         - grep

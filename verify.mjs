@@ -137,6 +137,24 @@ test('拒绝白名单外的工具并说明原因', () => {
   assert.match(reason, /read/)
 })
 
+test('默认白名单含 read_image（原生看图工具，由 dsh-tool-fs 注册）', () => {
+  const allow = DEFAULT_CONFIG.tools.allow
+  assert.ok(allow.includes('read_image'), '缺少 read_image')
+  for (const required of ['read', 'write', 'edit', 'grep', 'glob', 'todo_write']) {
+    assert.ok(allow.includes(required), `缺少 ${required}`)
+  }
+  assert.ok(
+    allow.includes('pwsh') || allow.includes('bash'),
+    '至少要有一个 shell 工具',
+  )
+})
+
+test('看图的守卫判定与其它工具一致', () => {
+  const guard = makeToolGuard(DEFAULT_CONFIG.tools.allow)
+  assert.equal(guard({ name: 'read_image' }), undefined, 'read_image 应当放行')
+  assert.match(guard({ name: 'web_search' }), /未开放/, '不在默认白名单的 web_search 应被拒')
+})
+
 console.log('\n请求参数合并')
 test('默认不覆盖上游已设的值', () => {
   const merged = mergeRequestConfig({ provider: 'p', model: 'm', temperature: 1 }, DEFAULT_CONFIG.request)

@@ -4,7 +4,7 @@
 
 | 控制点 | 手段 | 默认值 |
 |---|---|---|
-| 工具数量 | 预设只挂 4 个工具插件行 → 模型看到 **7 个工具** | `read write edit grep glob pwsh todo_write` |
+| 工具数量 | 预设只挂 4 个工具插件行 → 模型看到 **8 个工具** | `read read_image write edit grep glob pwsh todo_write` |
 | 系统提示词 | 服从与自我约束、理解人话、知识基线、思考机制、编码习惯、设计风格、交付纪律 | 追加，7 节 |
 | 请求参数 | `agent/request` 瀑布里改写 `LlmCallConfig` | `temperature: 0.2` |
 
@@ -47,7 +47,7 @@
 
 **能力约束**和**思维约束**是两回事，这里两层都做：
 
-- **能力约束（硬约束，在代码里）**：7 个工具的白名单 + `guard`。模型想调白名单外的工具，调用会被直接拒绝并收到原因。这不是提示词能商量的，是执行层拦下来的。
+- **能力约束（硬约束，在代码里）**：8 个工具的白名单 + `guard`。模型想调白名单外的工具，调用会被直接拒绝并收到原因。这不是提示词能商量的，是执行层拦下来的。
 - **思维约束（软约束，在提示词里）**：约束模型怎么想、产出多少、边界在哪。提示词能显著改变倾向，但它不是强制机制——别指望它像 guard 那样可靠。
 
 ## 那段提示词
@@ -145,7 +145,7 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
       config:
         id: plus-mode
         name: 内部测试模式
-        description: '内部测试模式：不沿用 2026 年 4 月之前的默认做法，配一套全新的思考机制、编码习惯与设计风格；模型只看到 7 个工具。'
+        description: '内部测试模式：不沿用 2026 年 4 月之前的默认做法，配一套全新的思考机制、编码习惯与设计风格；模型只看到 8 个工具。'
         plugins:
           - id: tool-fs
             name: '@deepseek-ai/dsh-tool-fs'
@@ -167,7 +167,7 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
             name: 'dsh-plus-mode'
             config:
               tools:
-                allow: [read, write, edit, grep, glob, pwsh, bash, todo_write]
+                allow: [read, read_image, write, edit, grep, glob, pwsh, bash, todo_write]
                 enforce: true
                 hideGlobal: true
               prompt:
@@ -185,6 +185,10 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
 
 **注意两个必填字段。** `@deepseek-ai/dsh-tool-fs-search` 的 `sampleOverCapGlobResults` 和 `@deepseek-ai/dsh-tool-todo` 的 `allowParallelInProgress` 在 schema 里**没有默认值**，漏掉会让整行装载失败并报 `missing required value`。其余工具行（`tool-fs`、`tool-bash`、`tool-pwsh`）可以不带 `config`。`verify.mjs` 里有一条断言专门守这个坑。
 
+**`read_image` 不需要新的插件行。** 原生看图工具由 `@deepseek-ai/dsh-tool-fs` 注册——官方对该包 0.2.0-rc.2 的描述是 "the model-facing **read, read_image, write, and edit** tools"，和 `read`/`write`/`edit` 同属一个包。所以开放看图能力只是把 `read_image` 加进 `tools.allow`，插件行一行都不用加。
+
+（注意别被 npm 上 `latest` 标签的旧 README 误导：那条标签指向 8 月的 0.0.1-rc.1，其中写着 "PDF/image/multimodal content are deferred"。该说法在运行时对应的 0.2.0-rc.2 里已经不成立。）
+
 ### 第 3 步：重启
 
 预设注册表在启动时读取。重启后新会话的模式选择器里会出现「内部测试模式」。
@@ -196,7 +200,7 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
 确认生效：让 agent 列出它的工具，应当只有 7 个；或者试调一个白名单外的工具，会收到：
 
 ```
-精简模式未开放工具 "web_search"；可用工具：read、write、edit、grep、glob、pwsh、bash、todo_write
+精简模式未开放工具 "web_search"；可用工具：read、read_image、write、edit、grep、glob、pwsh、bash、todo_write
 ```
 
 ## 调参
@@ -205,7 +209,7 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `tools.allow` | 8 个名字 | 白名单。两个 shell 名字都写上，实际只存在对应平台那个，不会多出工具 |
+| `tools.allow` | 9 个名字 | 白名单。两个 shell 名字都写上，实际只存在对应平台那个，不会多出工具 |
 | `tools.enforce` | `true` | `false` = 只靠 restrict 收敛，不做硬拒绝 |
 | `tools.hideGlobal` | `true` | `false` = 不尝试从工具目录摘除宿主工具 |
 | `prompt.replace` | `false` | `true` = 这段规则成为**唯一**提示词段 |
