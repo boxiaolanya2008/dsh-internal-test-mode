@@ -6,10 +6,12 @@
   "description": "内部测试模式：工具白名单、全新思考机制/编码习惯/设计风格的提示词、请求参数注入。作为库被 agent preset 引用，不作为 profile 组合包激活。",
   "main": "index.js",
   "exports": {
-    ".": "./index.js"
+    ".": "./index.js",
+    "./ledger": "./ledger.js"
   },
   "files": [
     "index.js",
+    "ledger.js",
     "preset",
     "verify.mjs",
     "README.md"

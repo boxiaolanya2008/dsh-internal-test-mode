@@ -20,6 +20,18 @@ const {
   resolveConfig,
 } = await import('./index.js')
 
+const {
+  DEFAULT_CONFIG: LEDGER_DEFAULTS,
+  apply: ledgerApply,
+  createLedger,
+  estimateChars,
+  extractPaths,
+  foldEvent,
+  name: ledgerName,
+  renderLedger,
+  resolveConfig: resolveLedgerConfig,
+} = await import('./ledger.js')
+
 const root = new URL('./', import.meta.url)
 let passed = 0
 
@@ -394,6 +406,118 @@ test('理解人话条文说明人话里没有专业词、底下压着真问题',
 test('默认配置真的用上了这段提示词', () => {
   assert.equal(DEFAULT_CONFIG.prompt.text, INTERNAL_TEST_PROMPT)
   assert.equal(resolveConfig(undefined).prompt.text, INTERNAL_TEST_PROMPT)
+})
+
+console.log('\n自研上下文账本')
+test('账本模块导出面完整', () => {
+  assert.equal(ledgerName, 'dsh-plus-mode/ledger')
+  assert.equal(typeof ledgerApply, 'function')
+  assert.equal(typeof renderLedger, 'function')
+  assert.equal(typeof foldEvent, 'function')
+  assert.equal(typeof extractPaths, 'function')
+  assert.equal(typeof estimateChars, 'function')
+  assert.equal(typeof resolveLedgerConfig, 'function')
+})
+
+test('账本配置校验', () => {
+  const config = resolveLedgerConfig(undefined)
+  assert.equal(config.recentTurns, 3)
+  assert.equal(config.charsPerToken, 4)
+  assert.throws(() => resolveLedgerConfig({ charsPerToken: 0 }), /charsPerToken/)
+  assert.throws(() => resolveLedgerConfig({ recentTurns: -1 }), /recentTurns/)
+  assert.throws(() => resolveLedgerConfig('nope'), /必须是对象/)
+})
+
+test('从工具参数里捞出文件路径', () => {
+  const paths = extractPaths('{"file_path":"D:\\\\proj\\\\README.md","content":"hi"}')
+  assert.ok(paths.includes('D:\\\\proj\\\\README.md'), `未捞到路径：${JSON.stringify(paths)}`)
+  assert.deepEqual(extractPaths('没有路径'), [])
+  assert.deepEqual(extractPaths(undefined), [])
+})
+
+test('字符估算只数文本字段且有上限', () => {
+  assert.equal(estimateChars({ text: 'abcd' }, 100), 4)
+  assert.equal(estimateChars({ text: 'x'.repeat(500) }, 100), 100, '应受上限约束')
+  assert.equal(estimateChars({ 无关: 'x'.repeat(500) }, 100), 0, '非文本字段不计入')
+})
+
+test('折叠事件并渲染出账本', () => {
+  const ledger = createLedger()
+  const cap = 4096
+  foldEvent(ledger, { type: 'turn/start' }, cap)
+  foldEvent(ledger, { type: 'step/start' }, cap)
+  foldEvent(ledger, { type: 'user/message', data: { content: [{ type: 'text', text: '给我加演示段' }] } }, cap)
+  foldEvent(
+    ledger,
+    { type: 'tool/call', data: { name: 'write', arguments: '{"file_path":"a/README.md"}' } },
+    cap,
+  )
+  foldEvent(ledger, { type: 'assistant/message', data: { text: 'done' } }, cap)
+
+  const text = renderLedger(ledger, resolveLedgerConfig(undefined))
+  assert.match(text, /## 上下文账本/)
+  assert.match(text, /第 1 轮 \/ 第 1 步/)
+  assert.match(text, /工具调用 1/)
+  assert.match(text, /给我加演示段/)
+  assert.match(text, /a\/README\.md/)
+  assert.match(text, /不是历史原文/, '必须说明这不是原文，否则是在骗模型')
+})
+
+test('空账本渲染为空串，不产生噪声', () => {
+  assert.equal(renderLedger(createLedger(), resolveLedgerConfig(undefined)), '')
+  assert.equal(renderLedger(undefined, resolveLedgerConfig(undefined)), '')
+})
+
+test('旧轮次被归并成要点，近轮保持展开', () => {
+  const ledger = createLedger()
+  const cap = 4096
+  for (let i = 1; i <= 4; i += 1) {
+    foldEvent(ledger, { type: 'turn/start' }, cap)
+    foldEvent(ledger, { type: 'user/message', data: { text: `请求 ${i}` } }, cap)
+    foldEvent(ledger, { type: 'turn/end' }, cap)
+  }
+  const text = renderLedger(ledger, { ...resolveLedgerConfig(undefined), recentTurns: 2, maxFiles: 3 })
+  assert.match(text, /已归并轮次（第 1 - 2 轮，仅要点）/, '前两轮应被归并')
+  assert.match(text, /近期轮次（完整保留）/, '后两轮应保持展开')
+})
+
+test('apply 注册事件监听与每次请求求值的 context 段', () => {
+  let registered = null
+  const handlers = []
+  const ctx = {
+    logger: { info() {}, warn() {} },
+    on: (event, handler) => handlers.push({ event, handler }),
+    systemPrompt: { context: (section) => { registered = section } },
+  }
+  ledgerApply(ctx, undefined)
+
+  assert.equal(handlers.length, 1)
+  assert.equal(handlers[0].event, 'session/event')
+  assert.equal(registered.name, 'dsh-plus-mode/ledger/state')
+  assert.equal(typeof registered.text, 'function', 'text 必须是函数形式，才能每轮重算')
+
+  const sessionId = 'session-ledger-test'
+  handlers[0].handler({ id: sessionId }, { type: 'turn/start', data: {} })
+  handlers[0].handler({ id: sessionId }, { type: 'user/message', data: { text: '你好' } })
+
+  const rendered = registered.text({ scope: { id: sessionId } })
+  assert.match(rendered, /你好/, '应按 scope 定位到该会话的账本')
+  assert.equal(registered.text({ scope: { id: '不存在的会话' } }), '', '未知会话返回空串')
+  assert.equal(registered.text({}), '', '没有 scope 时返回空串')
+  assert.equal(registered.text(undefined), '', 'undefined 上下文不抛错')
+})
+
+test('enabled=false 时完全不装载', () => {
+  const handlers = []
+  let touched = false
+  const ctx = {
+    logger: { info() {}, warn() {} },
+    on: (e, h) => handlers.push({ e, h }),
+    systemPrompt: { context: () => { touched = true } },
+  }
+  ledgerApply(ctx, { enabled: false })
+  assert.equal(handlers.length, 0)
+  assert.equal(touched, false)
 })
 
 console.log(`\n全部通过：${passed} 项\n`)
