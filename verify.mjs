@@ -379,6 +379,12 @@ test('服从条文覆盖禁擅自扩范围与禁加未要求的东西', () => {
   assert.match(INTERNAL_TEST_PROMPT, /唯一例外/, '缺少例外出口')
 })
 
+test('服从条文要求按当前指令行事，不延续被打断的任务', () => {
+  assert.match(INTERNAL_TEST_PROMPT, /中途插话就是改指令/, '缺少「插话即改令」')
+  assert.match(INTERNAL_TEST_PROMPT, /它就不再是任务/, '缺少「未被再次要求即不再是任务」')
+  assert.match(INTERNAL_TEST_PROMPT, /默认按改向理解/, '缺少歧义时的默认方向')
+})
+
 test('理解人话条文说明人话里没有专业词、底下压着真问题', () => {
   assert.match(INTERNAL_TEST_PROMPT, /人话里没有你的专业词/, '缺少「人话无专业词」')
   assert.match(INTERNAL_TEST_PROMPT, /都压着一个真实问题/, '缺少「底层真实问题」')
