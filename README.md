@@ -253,7 +253,8 @@ $node = "$env:USERPROFILE\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\nod
 ## 已知边界
 
 - **工作区 `preset/` 与 profile patch 是两份。** 生效的是 patch 里内联的那份；改 `preset/` 不会自动同步过去。这是声明式预设的固有约束——`plugins` 列表必须内联，没法引用外部文件。
-- **没带 compaction。** 本预设不含 `compaction-basic` 与 `tool-result-pruner`，长时间运行可能撞上下文上限。需要的话加一个带 `isolate` realm 的 group——服务行必须放在 `isolate` 组里，这是挂载时强制的。
+- **已带 compaction（本次补齐）。** 预设现在包含 `compaction-basic` 与 `tool-result-pruner`，放在一个 `isolate` realm 的 group 里——服务行不隔离会让整个挂载被拒绝。pruner 用默认阈值（8192 / 4096 / 1024）。
+- **`isolate` 语法未经验证。** 它是 DSH 对 loader 的扩展，不在 `cordis-plugin-loader` 的 Entry Options 表里（那张表只有 `id`/`name`/`config`/`group`/`disabled`/`inject`），官方各包 README 也没有正式说明。本项目采用 `isolate: { 服务名: true }` 这个形状。如果重启后预设报挂载失败，问题多半在这里。
 - **`restrict` 可能静默降级。** 失败时插件打一行 `warn` 并继续，`guard` 仍生效，所以工具数量上限有保障，只是模型目录里可能残留几个宿主工具。
 - **`temperature` 是建议值不是保证。** 某些模型路由不接受该参数，适配器可能忽略它。
 - **绝对路径也受支持。** 如果哪天不想要 junction，控制器行可以写成 `name: 'D:/31702/dsh-plus-mode/index.js'`，官方 README 确认绝对路径保留自身位置并会被转成 `file:` URL。

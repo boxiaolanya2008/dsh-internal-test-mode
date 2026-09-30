@@ -46,6 +46,27 @@
   config:
     allowParallelInProgress: true
 
+# compaction-basic 与 tool-result-pruner 都会发布服务（ctx.compaction /
+# ctx.toolResultPruner）。预设里把服务发到 root realm 会让整个挂载被拒绝，
+# 所以这两个服务行必须放进 isolate realm——realm 只约束「服务行」，
+# 上面那几个工具行不发布服务，因此不需要。
+#
+# 未设 config：pruner 的三个键都有默认值（thresholdChars 8192、
+# headChars 4096、tailChars 1024），且 head + 标记 + tail 必须 ≤ threshold。
+# 默认值满足该约束，也与标准预设一致。
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+
 # 控制器：白名单、提示词、请求参数都在这一个插件里。
 # 它不提供 Service，所以同样不需要 realm——realm 只约束「服务行」。
 - id: plus-mode
