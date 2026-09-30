@@ -98,7 +98,7 @@ test('导出 name / apply / DEFAULT_CONFIG', () => {
 console.log('\n配置校验')
 test('空配置回落到默认值', () => {
   const config = resolveConfig(undefined)
-  assert.equal(config.request.temperature, 0.2)
+  assert.equal(config.request.temperature, undefined)
   assert.equal(config.request.force, false)
   assert.equal(config.prompt.replace, false)
   assert.equal(config.tools.enforce, true)
@@ -162,15 +162,26 @@ test('默认不覆盖上游已设的值', () => {
   assert.equal(merged.provider, 'p')
 })
 
-test('上游未设时注入默认 temperature', () => {
-  const merged = mergeRequestConfig({ provider: 'p', model: 'm' }, DEFAULT_CONFIG.request)
-  assert.equal(merged.temperature, 0.2)
+test('默认配置不干预任何请求参数（已停用随机性控制）', () => {
+  const { temperature, maxTokens, reasoningEffort, stop } = DEFAULT_CONFIG.request
+  assert.equal(temperature, undefined, '默认不再设置 temperature')
+  assert.equal(maxTokens, undefined)
+  assert.equal(reasoningEffort, undefined)
+  assert.equal(stop, undefined)
+  const base = { provider: 'p', model: 'm' }
+  assert.equal(mergeRequestConfig(base, DEFAULT_CONFIG.request), base, '默认应当是彻底的直通')
+})
+
+test('填上 temperature 后重新生效：上游未设则注入', () => {
+  const request = { ...DEFAULT_CONFIG.request, temperature: 0.5 }
+  const merged = mergeRequestConfig({ provider: 'p', model: 'm' }, request)
+  assert.equal(merged.temperature, 0.5)
 })
 
 test('force=true 时覆盖上游', () => {
-  const request = { ...DEFAULT_CONFIG.request, force: true }
+  const request = { ...DEFAULT_CONFIG.request, temperature: 0.5, force: true }
   const merged = mergeRequestConfig({ temperature: 1, model: 'm' }, request)
-  assert.equal(merged.temperature, 0.2)
+  assert.equal(merged.temperature, 0.5)
 })
 
 test('undefined 参数不写入配置', () => {
@@ -196,9 +207,10 @@ test('无事可做时返回上游对象本身（否则每步重记 header 会打
 
 test('需要改动时才新建对象，且不污染上游', () => {
   const base = { provider: 'p', model: 'm' }
-  const merged = mergeRequestConfig(base, DEFAULT_CONFIG.request)
+  const request = { ...DEFAULT_CONFIG.request, temperature: 0.5 }
+  const merged = mergeRequestConfig(base, request)
   assert.notEqual(merged, base, '写入了 temperature，应当是副本')
-  assert.equal(merged.temperature, 0.2)
+  assert.equal(merged.temperature, 0.5)
   assert.equal('temperature' in base, false, '上游对象不能被动过')
   assert.equal(base.model, 'm')
 })

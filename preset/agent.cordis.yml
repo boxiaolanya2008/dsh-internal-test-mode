@@ -75,7 +75,8 @@
       suppressContext: false
       order: 0
     request:
+      # 机制保留，但默认为「不干预任何参数」。
+      # 填上 temperature / maxTokens / reasoningEffort / stop 即可重新开启。
       enabled: true
-      temperature: 0.2
       # force: false 时，上游其它插件已显式设过的值不被覆盖。
       force: false

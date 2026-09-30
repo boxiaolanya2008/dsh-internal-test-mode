@@ -6,7 +6,7 @@
 |---|---|---|
 | 工具数量 | 预设只挂 4 个工具插件行 → 模型看到 **8 个工具** | `read read_image write edit grep glob pwsh todo_write` |
 | 系统提示词 | 服从与自我约束、理解人话、知识基线、思考机制、编码习惯、设计风格、交付纪律 | 追加，7 节 |
-| 请求参数 | `agent/request` 瀑布里改写 `LlmCallConfig` | `temperature: 0.2` |
+| 请求参数 | `agent/request` 瀑布里改写 `LlmCallConfig` | **默认不干预**（机制保留，填参数即生效） |
 
 ## 演示
 
@@ -17,8 +17,10 @@
 |  | **内部测试模式** | 官方网页版 |
 |---|---|---|
 | 思考等级 | Max | 默认 |
-| 随机性 | **0.2** | 默认 |
+| 随机性 | 0.2（演示时的设置） | 默认 |
 | 产物 | [`pelican-bicycle.html`](pelican-bicycle.html) | [`deepseek_html_20260930_f2afb4.html`](deepseek_html_20260930_f2afb4.html) |
+
+> **注**：这次演示跑在本模式的早期设置下（当时默认 `temperature: 0.2`）。上表记录的是**演示当时的条件**，不是当前默认值——当前版本已默认不干预随机性。若要在同样条件下复现，需在 patch 里显式填回 `temperature: 0.2`。
 
 **内部测试模式**（思考等级 Max，temperature 0.2）
 
@@ -177,7 +179,6 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
                 order: 0
               request:
                 enabled: true
-                temperature: 0.2
                 force: false
 ```
 
@@ -215,11 +216,20 @@ New-Item -ItemType Junction -Path $link -Target "D:\31702\dsh-plus-mode"
 | `prompt.replace` | `false` | `true` = 这段规则成为**唯一**提示词段 |
 | `prompt.suppressContext` | `false` | `true` = 不再注入动态运行上下文 |
 | `prompt.text` | `INTERNAL_TEST_PROMPT` | 不写则用插件内置的「内部测试模式」提示词 |
-| `request.temperature` | `0.2` | |
+| `request.temperature` | 未设置 | 不写就不碰这个参数 |
 | `request.force` | `false` | `true` = 覆盖上游已设的值，抢到这个旋钮 |
 | `request.maxTokens` | 未设置 | 不写就完全不碰这个参数 |
 
-`request` 里除 `temperature` 外的键默认 `undefined`，**不写就不会被注入**——插件只碰你显式给值的参数。
+`request` 段默认是**彻底的直通**：四个参数全部为 `undefined` 时，合并函数原样返回上游对象，一次分配都不做。要重新控制随机性，在 patch 里填上 `temperature` 即可：
+
+```yaml
+              request:
+                enabled: true
+                temperature: 0.2
+                force: false
+```
+
+`force: false` 时，若上游已有别的插件设过同一个键，本插件让路；想要确定性控制就设 `force: true`。
 
 ### 换成「只有一小段提示词」的极限形态
 

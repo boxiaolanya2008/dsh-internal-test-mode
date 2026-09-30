@@ -124,7 +124,9 @@ export const DEFAULT_CONFIG = {
   },
   request: {
     enabled: true,
-    temperature: 0.2,
+    // 默认不干预任何请求参数。机制保留：填上 temperature / maxTokens /
+    // reasoningEffort / stop 中的任意一个，下一次装载就会重新生效。
+    temperature: undefined,
     force: false,
     maxTokens: undefined,
     reasoningEffort: undefined,
@@ -345,7 +347,7 @@ export function apply(ctx, raw) {
   logger.info(
     `[${name}] 已装载：工具白名单 ${config.tools.allow.length} 个，` +
       `提示词${config.prompt.replace ? '替换' : '追加'}，` +
-      `temperature=${request0(config)}`,
+      `请求参数 ${request0(config)}`,
   )
 }
 
@@ -357,8 +359,10 @@ export function apply(ctx, raw) {
  */
 function request0(config) {
   if (!config.request.enabled) return '关闭'
-  const parts = [`${config.request.temperature}`]
+  const parts = []
+  if (config.request.temperature !== undefined) parts.push(`temperature=${config.request.temperature}`)
   if (config.request.maxTokens !== undefined) parts.push(`maxTokens=${config.request.maxTokens}`)
   if (config.request.reasoningEffort !== undefined) parts.push(`effort=${config.request.reasoningEffort}`)
-  return parts.join(', ')
+  if (config.request.stop !== undefined) parts.push(`stop=${config.request.stop.length} 项`)
+  return parts.length > 0 ? parts.join(', ') : '未设置任何参数'
 }
